@@ -1,0 +1,576 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Melody BOT - Playlist System</title>
+<link rel="icon" type="image/png" href="icon.png">
+<link rel="apple-touch-icon" href="icon.png">
+<style>
+  :root {
+    --accent:#2E90FA; --accent2:#6C5CE7; --bg:#F3F5FA; --card:#FFFFFF;
+    --border:#E7EBF2; --text:#16233B; --muted:#8B98AD; --danger:#E5484D;
+    --shadow: 0 8px 24px rgba(22,35,59,.07), 0 2px 6px rgba(22,35,59,.05);
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { height:100%; }
+  body {
+    margin:0; color:var(--text); background:var(--bg);
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Pretendard','Malgun Gothic',sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  header {
+    background:linear-gradient(120deg,var(--accent),var(--accent2));
+    color:#fff; padding:20px 24px; display:flex; align-items:center; gap:12px;
+    box-shadow:0 4px 20px rgba(46,144,250,.25); position:sticky; top:0; z-index:20;
+  }
+  header .logo {
+    width:36px; height:36px; border-radius:11px; background:rgba(255,255,255,.22);
+    display:flex; align-items:center; justify-content:center; flex-shrink:0; overflow:hidden;
+  }
+  header .logo img { width:100%; height:100%; object-fit:cover; }
+  header .titles { line-height:1.3; min-width:0; flex:1; }
+  header .titles .t1 { font-size:11px; opacity:.85; font-weight:600; letter-spacing:.02em; }
+  header .titles .t2 { font-size:17px; font-weight:800; }
+  header .token-btn {
+    background:rgba(255,255,255,.18); color:#fff; border:none; border-radius:12px;
+    padding:8px 12px; font-size:12px; font-weight:700; cursor:pointer; flex-shrink:0;
+  }
+
+  .layout { display:flex; gap:20px; padding:24px; max-width:1080px; margin:0 auto; align-items:flex-start; }
+  .col-side { width:270px; flex-shrink:0; position:sticky; top:88px; }
+  .col-main { flex:1; min-width:0; }
+
+  .card {
+    background:var(--card); border:1px solid var(--border); border-radius:18px;
+    padding:18px; box-shadow:var(--shadow);
+  }
+  .card + .card { margin-top:16px; }
+  h2 { font-size:14px; margin:0 0 12px; font-weight:800; letter-spacing:-.01em; word-break:break-word; color:var(--text); }
+  .subtle { color:var(--muted); font-size:12.5px; line-height:1.5; }
+
+  ul.playlists { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:4px; }
+  ul.playlists li {
+    padding:11px 12px; border-radius:12px; cursor:pointer; display:flex; align-items:center; gap:10px;
+    transition:background .15s ease, color .15s ease; font-weight:600; font-size:14px;
+  }
+  ul.playlists li .dot { width:7px; height:7px; border-radius:50%; background:var(--border); flex-shrink:0; transition:background .15s; }
+  ul.playlists li:hover { background:#F3F6FB; }
+  ul.playlists li.active { background:linear-gradient(90deg,#EAF3FF,#F1EEFE); color:var(--accent); }
+  ul.playlists li.active .dot { background:linear-gradient(120deg,var(--accent),var(--accent2)); }
+  ul.playlists li span.name { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+  input, button { font-family:inherit; }
+  input[type=text], input[type=password] {
+    width:100%; padding:11px 12px; border:1.5px solid var(--border); border-radius:10px;
+    background:#F7F9FC; color:var(--text); font-size:15px; outline:none;
+    transition:border-color .15s ease, background .15s ease;
+  }
+  input[type=text]:focus, input[type=password]:focus { border-color:var(--accent); background:#fff; }
+
+  button {
+    cursor:pointer; border:none; border-radius:14px; padding:11px 18px;
+    background:linear-gradient(120deg,var(--accent),var(--accent2)); color:#fff; font-weight:700; font-size:14px;
+    min-height:42px; box-shadow:0 3px 10px rgba(46,144,250,.28);
+    transition:transform .12s ease, box-shadow .12s ease, opacity .12s ease;
+  }
+  button:hover { transform:translateY(-1px); box-shadow:0 6px 16px rgba(46,144,250,.34); }
+  button:active { transform:translateY(0); box-shadow:0 2px 6px rgba(46,144,250,.24); }
+  button.secondary { background:#EEF1F6; color:var(--text); box-shadow:none; }
+  button.secondary:hover { background:#E4E9F1; box-shadow:none; }
+  button.danger { background:linear-gradient(120deg,#F0555B,var(--danger)); box-shadow:0 3px 10px rgba(229,72,77,.3); }
+  button.ghost { background:transparent; color:var(--muted); padding:6px 10px; min-height:auto; box-shadow:none; font-weight:600; }
+  button.ghost:hover { color:var(--danger); background:#FFF1F1; transform:none; box-shadow:none; }
+  button:disabled { opacity:.55; cursor:not-allowed; transform:none; box-shadow:none; }
+
+  .toolbar { display:flex; gap:8px; margin-top:16px; flex-wrap:wrap; }
+  .empty { color:var(--muted); font-size:13px; padding:28px 8px; text-align:center; }
+  .empty .big { font-size:26px; display:block; margin-bottom:6px; opacity:.6; }
+  .newrow { display:flex; gap:8px; margin-top:12px; flex-wrap:wrap; }
+  .newrow input { flex:1; min-width:120px; }
+
+  #songBody { margin-top:6px; display:flex; flex-direction:column; gap:6px; }
+  .song-row {
+    display:flex; align-items:center; gap:6px; padding:9px 6px; border-radius:12px;
+    background:var(--card); touch-action: pan-y; transition:background .12s ease, box-shadow .12s ease;
+  }
+  .song-row:hover { background:#F7F9FC; }
+  .song-row.dragging { background:#EAF3FF; box-shadow:0 8px 20px rgba(22,35,59,.16); z-index:5; position:relative; }
+  .song-row .num {
+    width:22px; flex-shrink:0; color:var(--muted); font-size:11.5px; text-align:center; font-weight:700;
+  }
+  .song-row .drag-handle {
+    flex-shrink:0; width:34px; height:34px; display:flex; align-items:center; justify-content:center;
+    cursor:grab; color:var(--muted); font-size:18px; touch-action:none; user-select:none; border-radius:9px;
+    transition:background .12s ease, color .12s ease;
+  }
+  .song-row .drag-handle:hover { background:#EEF1F6; color:var(--text); }
+  .song-row .drag-handle:active { cursor:grabbing; background:#EAF3FF; color:var(--accent); }
+  .song-fields { flex:1; min-width:0; display:flex; flex-direction:column; gap:5px; }
+  .song-fields input { font-size:13.5px; padding:7px 10px; }
+  .song-row .del-btn { flex-shrink:0; }
+
+  .status-bar {
+    font-size:11.5px; color:var(--muted); margin-top:10px; display:flex; align-items:center; gap:6px;
+  }
+  .status-bar .badge {
+    width:7px; height:7px; border-radius:50%; background:#B9C2D0; flex-shrink:0;
+  }
+  .status-bar.ok .badge { background:#2FBE73; }
+  .status-bar.err .badge { background:var(--danger); }
+
+  /* 모달 */
+  .modal-overlay {
+    position:fixed; inset:0; background:rgba(15,23,42,.45); backdrop-filter:blur(3px);
+    display:none; align-items:center; justify-content:center; z-index:100; padding:20px;
+    animation:fadeIn .15s ease;
+  }
+  .modal-box {
+    background:#fff; border-radius:20px; width:100%; max-width:400px; padding:22px;
+    box-shadow:0 20px 50px rgba(15,23,42,.28); animation:popIn .18s cubic-bezier(.2,.9,.3,1.2);
+  }
+  .modal-icon {
+    width:44px; height:44px; border-radius:13px; display:flex; align-items:center; justify-content:center;
+    font-size:20px; margin-bottom:12px; background:linear-gradient(120deg,#EAF3FF,#F1EEFE);
+  }
+  .modal-box.danger .modal-icon { background:#FDECEC; }
+  .modal-title { font-size:16px; font-weight:800; margin:0 0 6px; }
+  .modal-message { font-size:13.5px; color:var(--muted); line-height:1.55; margin:0 0 14px; white-space:pre-line; }
+  .modal-field { margin-bottom:12px; }
+  .modal-field label { display:block; font-size:12px; font-weight:700; color:var(--muted); margin-bottom:5px; }
+  .modal-error {
+    background:#FDECEC; color:var(--danger); font-size:12.5px; font-weight:600;
+    border-radius:9px; padding:8px 10px; margin-bottom:12px; display:none;
+  }
+  .modal-actions { display:flex; gap:8px; justify-content:flex-end; margin-top:16px; }
+  .modal-actions button { flex:1; }
+
+  @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+  @keyframes popIn { from{opacity:0; transform:scale(.94) translateY(6px)} to{opacity:1; transform:scale(1) translateY(0)} }
+
+  @media (max-width: 760px) {
+    .layout { flex-direction:column; padding:14px; gap:14px; }
+    .col-side { width:100%; position:static; }
+    header { padding:16px; }
+    header .titles .t2 { font-size:15px; }
+    .song-row .drag-handle { width:38px; height:38px; font-size:20px; }
+    button { padding:12px 16px; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="logo"><img src="icon.png" alt=""></div>
+  <div class="titles">
+    <div class="t1">MELODY BOT</div>
+    <div class="t2">Playlist System</div>
+  </div>
+  <button class="token-btn" onclick="changeToken()" id="tokenBtn">토큰 설정</button>
+</header>
+<div class="layout">
+  <div class="col-side">
+    <div class="card">
+      <h2>재생목록</h2>
+      <ul class="playlists" id="playlistList"></ul>
+      <div class="toolbar">
+        <button onclick="createPlaylist()" style="width:100%">+ 새 재생목록</button>
+      </div>
+      <div class="status-bar" id="statusBar"><span class="badge"></span><span id="statusText">GitHub에서 불러오는 중...</span></div>
+    </div>
+  </div>
+  <div class="col-main">
+    <div class="card" id="editorCard">
+      <h2 id="editorTitle">재생목록을 선택하세요</h2>
+      <div id="songBody"></div>
+      <div class="newrow" id="newRow" style="display:none">
+        <input type="text" id="newUrl" placeholder="유튜브 링크">
+        <input type="text" id="newTitle" placeholder="제목">
+        <button onclick="addSong()">추가</button>
+      </div>
+      <div class="toolbar" id="saveRow" style="display:none">
+        <button onclick="save()">저장</button>
+        <button class="danger" onclick="removePlaylist()">삭제</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal-box" id="modalBox">
+    <div class="modal-icon" id="modalIcon">🎵</div>
+    <div class="modal-title" id="modalTitle"></div>
+    <div class="modal-message" id="modalMessage"></div>
+    <div id="modalFields"></div>
+    <div class="modal-error" id="modalError"></div>
+    <div class="modal-actions">
+      <button class="secondary" id="modalCancelBtn">취소</button>
+      <button id="modalConfirmBtn">확인</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const GH_OWNER = 'milkyway-melody';
+const GH_REPO = 'melody-playlists';
+const GH_BRANCH = 'main';
+const GH_API = `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents`;
+
+let current = null;
+let currentSha = null;
+let songs = [];
+
+// ---------------------------------------------------------------
+// 모달(브라우저 기본 prompt/alert/confirm 대신 웹페이지 안에서 뜨는 창)
+// ---------------------------------------------------------------
+function openModal({ icon = '🎵', title = '', message = '', fields = [], confirmText = '확인', cancelText = '취소', danger = false }) {
+  return new Promise(resolve => {
+    const overlay = document.getElementById('modalOverlay');
+    const box = document.getElementById('modalBox');
+    box.className = 'modal-box' + (danger ? ' danger' : '');
+    document.getElementById('modalIcon').textContent = danger ? '⚠️' : icon;
+    document.getElementById('modalTitle').textContent = title;
+    const msgEl = document.getElementById('modalMessage');
+    msgEl.textContent = message;
+    msgEl.style.display = message ? '' : 'none';
+
+    const fieldsBox = document.getElementById('modalFields');
+    fieldsBox.innerHTML = '';
+    const inputs = {};
+    fields.forEach((f, idx) => {
+      const wrap = document.createElement('div');
+      wrap.className = 'modal-field';
+      const label = document.createElement('label');
+      label.textContent = f.label;
+      const input = document.createElement('input');
+      input.type = f.type || 'text';
+      input.placeholder = f.placeholder || '';
+      input.value = f.value || '';
+      wrap.appendChild(label);
+      wrap.appendChild(input);
+      fieldsBox.appendChild(wrap);
+      inputs[f.name] = input;
+      if (idx === fields.length - 1) {
+        input.addEventListener('keydown', e => { if (e.key === 'Enter') confirmBtn.click(); });
+      } else {
+        input.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); fieldsBox.children[idx + 1]?.querySelector('input')?.focus(); } });
+      }
+    });
+
+    document.getElementById('modalError').style.display = 'none';
+
+    const confirmBtn = document.getElementById('modalConfirmBtn');
+    const cancelBtn = document.getElementById('modalCancelBtn');
+    confirmBtn.textContent = confirmText;
+    confirmBtn.className = danger ? 'danger' : '';
+    cancelBtn.style.display = cancelText ? '' : 'none';
+    cancelBtn.textContent = cancelText || '';
+
+    overlay.style.display = 'flex';
+    const firstInput = fieldsBox.querySelector('input');
+    setTimeout(() => (firstInput || confirmBtn).focus(), 60);
+
+    function cleanup(result) {
+      overlay.style.display = 'none';
+      confirmBtn.onclick = null;
+      cancelBtn.onclick = null;
+      overlay.onclick = null;
+      document.removeEventListener('keydown', onEsc);
+      resolve(result);
+    }
+
+    function onEsc(e) { if (e.key === 'Escape' && cancelText) cleanup(null); }
+    document.addEventListener('keydown', onEsc);
+
+    overlay.onclick = e => { if (e.target === overlay && cancelText) cleanup(null); };
+    cancelBtn.onclick = () => cleanup(null);
+    confirmBtn.onclick = () => {
+      const values = {};
+      for (const k in inputs) values[k] = inputs[k].value.trim();
+      cleanup(fields.length ? values : true);
+    };
+  });
+}
+
+function modalAlert(message, { title = '알림', danger = false } = {}) {
+  return openModal({ title, message, cancelText: null, confirmText: '확인', danger });
+}
+function modalConfirm(message, { title = '확인', confirmText = '삭제', danger = true } = {}) {
+  return openModal({ title, message, confirmText, cancelText: '취소', danger }).then(r => r === true);
+}
+function modalPrompt(title, fields, opts = {}) {
+  return openModal({ title, fields, confirmText: opts.confirmText || '확인', cancelText: '취소', message: opts.message || '' });
+}
+
+// ---------------------------------------------------------------
+// GitHub Contents API 연동
+// ---------------------------------------------------------------
+function getToken() { return localStorage.getItem('gh_token') || ''; }
+function setToken(t) { if (t) localStorage.setItem('gh_token', t); else localStorage.removeItem('gh_token'); }
+
+async function changeToken() {
+  const result = await modalPrompt('GitHub 토큰', [
+    { name: 'token', label: 'Personal Access Token', type: 'password', placeholder: 'ghp_... 또는 github_pat_...', value: getToken() },
+  ], { message: '재생목록을 만들거나 수정·삭제하려면 이 저장소에 쓰기 권한이 있는 GitHub 토큰이 필요합니다. 한 번 입력하면 이 브라우저에만 저장됩니다.' });
+  if (!result) return;
+  setToken(result.token);
+  updateTokenBtn();
+}
+
+function updateTokenBtn() {
+  document.getElementById('tokenBtn').textContent = getToken() ? '토큰 설정됨 ✓' : '토큰 설정';
+}
+
+async function ghRequest(path, options = {}) {
+  const res = await fetch(`${GH_API}/${path}`, options);
+  return res;
+}
+
+async function ghGetFile(path) {
+  const res = await ghRequest(`${path}?ref=${GH_BRANCH}`, { headers: { Accept: 'application/vnd.github+json' } });
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error('GitHub 요청 실패 (' + res.status + ')');
+  return res.json();
+}
+
+async function ghSaveFile(path, text, sha, message) {
+  const token = getToken();
+  if (!token) { await changeToken(); if (!getToken()) throw new Error('NO_TOKEN'); }
+  const body = { message, content: b64EncodeUtf8(text), branch: GH_BRANCH };
+  if (sha) body.sha = sha;
+  const res = await ghRequest(path, {
+    method: 'PUT',
+    headers: { Accept: 'application/vnd.github+json', Authorization: `token ${getToken()}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (res.status === 401 || res.status === 403) { setToken(''); updateTokenBtn(); throw new Error('AUTH'); }
+  if (!res.ok) throw new Error('GitHub 저장 실패 (' + res.status + ')');
+  return res.json();
+}
+
+async function ghDeleteFile(path, sha, message) {
+  const token = getToken();
+  if (!token) { await changeToken(); if (!getToken()) throw new Error('NO_TOKEN'); }
+  const res = await ghRequest(path, {
+    method: 'DELETE',
+    headers: { Accept: 'application/vnd.github+json', Authorization: `token ${getToken()}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ message, sha, branch: GH_BRANCH }),
+  });
+  if (res.status === 401 || res.status === 403) { setToken(''); updateTokenBtn(); throw new Error('AUTH'); }
+  if (!res.ok) throw new Error('GitHub 삭제 실패 (' + res.status + ')');
+}
+
+function b64EncodeUtf8(str) { return btoa(unescape(encodeURIComponent(str))); }
+function b64DecodeUtf8(str) { return decodeURIComponent(escape(atob(str.replace(/\n/g, '')))); }
+
+// 봇이 읽는 것과 같은 형식: 한 줄에 "번호,링크,제목"
+function parsePlaylistText(text) {
+  return text.split('\n').map(l => l.trim()).filter(l => l.length > 0).map(line => {
+    const parts = line.split(',');
+    const url = (parts[1] || '').trim();
+    const title = parts.slice(2).join(',').trim();
+    return { url, title };
+  });
+}
+function buildPlaylistText(list) {
+  return list.map((s, i) => `${i + 1},${s.url},${s.title}`).join('\n');
+}
+
+// ---------------------------------------------------------------
+// 재생목록 목록/편집
+// ---------------------------------------------------------------
+function setStatus(text, state) {
+  const bar = document.getElementById('statusBar');
+  bar.className = 'status-bar' + (state ? ' ' + state : '');
+  document.getElementById('statusText').textContent = text;
+}
+
+async function refreshPlaylists() {
+  setStatus('GitHub에서 불러오는 중...', '');
+  let items;
+  try {
+    const res = await ghRequest('playlists?ref=' + GH_BRANCH, { headers: { Accept: 'application/vnd.github+json' } });
+    items = res.status === 404 ? [] : await res.json();
+    if (!Array.isArray(items)) items = [];
+    setStatus('GitHub와 연결됨', 'ok');
+  } catch (e) {
+    setStatus('GitHub 연결 실패 — 새로고침 해보세요', 'err');
+    return;
+  }
+
+  const names = items.filter(i => i.name.endsWith('.txt')).map(i => i.name.replace(/\.txt$/, '')).sort();
+  const ul = document.getElementById('playlistList');
+  ul.innerHTML = '';
+  if (names.length === 0) {
+    ul.innerHTML = '<div class="empty"><span class="big">🎧</span>등록된 재생목록이 없습니다</div>';
+    return;
+  }
+  names.forEach(name => {
+    const li = document.createElement('li');
+    li.className = name === current ? 'active' : '';
+    li.innerHTML = `<span class="dot"></span><span class="name">${escapeHtml(name)}</span>`;
+    li.onclick = () => selectPlaylist(name);
+    ul.appendChild(li);
+  });
+}
+
+async function selectPlaylist(name) {
+  current = name;
+  const file = await ghGetFile(`playlists/${encodeURIComponent(name)}.txt`);
+  currentSha = file ? file.sha : null;
+  const text = file ? b64DecodeUtf8(file.content) : '';
+  songs = parsePlaylistText(text);
+
+  document.getElementById('editorTitle').textContent = `${name} · ${songs.length}곡  —  !플리추가 ${name}`;
+  document.getElementById('newRow').style.display = '';
+  document.getElementById('saveRow').style.display = '';
+  renderSongs();
+  refreshPlaylists();
+}
+
+function renderSongs() {
+  const body = document.getElementById('songBody');
+  body.innerHTML = '';
+  if (songs.length === 0) {
+    body.innerHTML = '<div class="empty"><span class="big">➕</span>아직 곡이 없어요. 아래에서 추가해보세요.</div>';
+    return;
+  }
+  songs.forEach((s, i) => {
+    const row = document.createElement('div');
+    row.className = 'song-row';
+    row.dataset.index = i;
+    row.innerHTML = `
+      <span class="num">${i + 1}</span>
+      <span class="drag-handle">⠿</span>
+      <div class="song-fields">
+        <input type="text" value="${escapeAttr(s.title)}" placeholder="제목" onchange="songs[${i}].title=this.value">
+        <input type="text" value="${escapeAttr(s.url)}" placeholder="링크" onchange="songs[${i}].url=this.value">
+      </div>
+      <button class="ghost del-btn" onclick="deleteSong(${i})">삭제</button>`;
+    body.appendChild(row);
+    attachDrag(row.querySelector('.drag-handle'), row);
+  });
+}
+
+// 마우스/터치 공용(Pointer Events)으로 곡 순서를 드래그로 바꾼다. 드래그 중엔
+// 전체 리렌더 대신 실제 DOM 노드를 옮겨서(포인터 캡처가 끊기지 않게) 부드럽게
+// 움직이고, 손을 떼면 그때 DOM 순서를 songs 배열에 반영하고 다시 그린다.
+function attachDrag(handle, row) {
+  let dragging = false;
+
+  handle.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    dragging = true;
+    handle.setPointerCapture(e.pointerId);
+    row.classList.add('dragging');
+  });
+
+  handle.addEventListener('pointermove', e => {
+    if (!dragging) return;
+    const el = document.elementFromPoint(e.clientX, e.clientY);
+    const overRow = el && el.closest('.song-row');
+    if (!overRow || overRow === row || overRow.parentNode !== row.parentNode) return;
+
+    const rect = overRow.getBoundingClientRect();
+    const before = e.clientY < rect.top + rect.height / 2;
+    row.parentNode.insertBefore(row, before ? overRow : overRow.nextSibling);
+  });
+
+  const endDrag = () => {
+    if (!dragging) return;
+    dragging = false;
+    row.classList.remove('dragging');
+
+    const body = document.getElementById('songBody');
+    const order = [...body.children].map(r => songs[parseInt(r.dataset.index, 10)]);
+    songs = order;
+    renderSongs();
+  };
+
+  handle.addEventListener('pointerup', endDrag);
+  handle.addEventListener('pointercancel', endDrag);
+}
+
+function deleteSong(i) {
+  songs.splice(i, 1);
+  renderSongs();
+}
+
+async function addSong() {
+  const url = document.getElementById('newUrl').value.trim();
+  const title = document.getElementById('newTitle').value.trim();
+  if (!url || !title) { await modalAlert('링크와 제목을 모두 입력하세요.', { title: '입력 필요', danger: true }); return; }
+  songs.push({ url, title });
+  document.getElementById('newUrl').value = '';
+  document.getElementById('newTitle').value = '';
+  renderSongs();
+}
+
+async function save() {
+  try {
+    const result = await ghSaveFile(
+      `playlists/${encodeURIComponent(current)}.txt`,
+      buildPlaylistText(songs),
+      currentSha,
+      `재생목록 저장: ${current}`
+    );
+    currentSha = result.content.sha;
+    document.getElementById('editorTitle').textContent = `${current} · ${songs.length}곡  —  저장됨 ✓`;
+  } catch (e) {
+    if (e.message === 'AUTH') { await modalAlert('토큰이 없거나 이 저장소에 쓸 권한이 없습니다. 토큰을 다시 설정해주세요.', { title: '저장 실패', danger: true }); return; }
+    if (e.message === 'NO_TOKEN') return;
+    await modalAlert(e.message, { title: '저장 실패', danger: true });
+  }
+}
+
+async function removePlaylist() {
+  const ok = await modalConfirm(`'${current}' 재생목록을 삭제할까요?\n이 작업은 되돌릴 수 없습니다.`, { title: '재생목록 삭제' });
+  if (!ok) return;
+
+  try {
+    await ghDeleteFile(`playlists/${encodeURIComponent(current)}.txt`, currentSha, `재생목록 삭제: ${current}`);
+  } catch (e) {
+    if (e.message === 'AUTH') { await modalAlert('토큰이 없거나 이 저장소에 쓸 권한이 없습니다. 토큰을 다시 설정해주세요.', { title: '삭제 실패', danger: true }); return; }
+    if (e.message === 'NO_TOKEN') return;
+    await modalAlert(e.message, { title: '삭제 실패', danger: true });
+    return;
+  }
+
+  current = null; currentSha = null; songs = [];
+  document.getElementById('editorTitle').textContent = '재생목록을 선택하세요';
+  document.getElementById('songBody').innerHTML = '';
+  document.getElementById('newRow').style.display = 'none';
+  document.getElementById('saveRow').style.display = 'none';
+  refreshPlaylists();
+}
+
+async function createPlaylist() {
+  const result = await modalPrompt('새 재생목록', [
+    { name: 'name', label: '플레이리스트 이름', placeholder: '예: 아침플리' },
+  ], { message: '이름을 정하면 빈 재생목록으로 만들어집니다. 만들 때 GitHub 토큰이 필요해요(처음 한 번만).', confirmText: '만들기' });
+  if (!result) return;
+  if (!result.name) { await modalAlert('이름을 입력해주세요.', { title: '입력 필요', danger: true }); return; }
+
+  const path = `playlists/${encodeURIComponent(result.name)}.txt`;
+  const exists = await ghGetFile(path);
+  if (exists) { await modalAlert('이미 있는 이름입니다.', { title: '생성 실패', danger: true }); return; }
+
+  try {
+    await ghSaveFile(path, '', null, `재생목록 생성: ${result.name}`);
+  } catch (e) {
+    if (e.message === 'AUTH') { await modalAlert('토큰이 없거나 이 저장소에 쓸 권한이 없습니다. 토큰을 다시 설정해주세요.', { title: '생성 실패', danger: true }); return; }
+    if (e.message === 'NO_TOKEN') return;
+    await modalAlert(e.message, { title: '생성 실패', danger: true });
+    return;
+  }
+
+  await selectPlaylist(result.name);
+}
+
+function escapeHtml(s) { return s.replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c])); }
+function escapeAttr(s) { return escapeHtml(s).replace(/"/g, '&quot;'); }
+
+updateTokenBtn();
+refreshPlaylists();
+</script>
+</body>
+</html>
